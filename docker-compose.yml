@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  prefect-db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: prefect
+      POSTGRES_PASSWORD: prefect
+      POSTGRES_DB: prefect
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # networks:
+    #   - infrahub_default
+
+  prefect-server:
+    image: prefecthq/prefect:3.3.3-python3.10
+    restart: always
+    command: prefect server start
+    ports:
+      - "4200:4200"
+    environment:
+      PREFECT_SERVER_API_HOST: 0.0.0.0
+      PREFECT_SERVER_DATABASE_CONNECTION_URL: postgresql+asyncpg://prefect:prefect@prefect-db:5432/prefect
+    depends_on:
+      - prefect-db
+    # networks:
+    #   - infrahub_default
+
+  prefect-worker:
+    image: prefecthq/prefect:3.3.3-python3.10
+    command: prefect worker start --pool docker-pool
+    environment:
+      PREFECT_API_URL: http://prefect-server:4200/api
+    depends_on:
+      - prefect-server
+    restart: always
+    # networks:
+    #   - infrahub_default
+
+  webhook-api:
+    build:
+      context: ./webhook
+    ports:
+      - "8000:8000"
+    environment:
+      PREFECT_API_URL: http://prefect-server:4200/api
+    # networks:
+    #   - infrahub_default
+
+volumes:
+  postgres_data: {}
+
+# networks:
+#   infrahub_default:
+#     external: true
