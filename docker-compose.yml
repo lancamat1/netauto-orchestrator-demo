@@ -14,7 +14,7 @@ services:
     #   - infrahub_default
 
   prefect-server:
-    image: prefecthq/prefect:3.3.3-python3.10
+    image: prefecthq/prefect:3-latest
     restart: always
     command: prefect server start
     ports:
@@ -27,24 +27,34 @@ services:
     # networks:
     #   - infrahub_default
 
-  prefect-worker:
-    image: prefecthq/prefect:3.3.3-python3.10
-    command: prefect worker start --pool docker-pool
-    environment:
-      PREFECT_API_URL: http://prefect-server:4200/api
-    depends_on:
-      - prefect-server
-    restart: always
-    # networks:
-    #   - infrahub_default
+  # prefect-worker:
+  #   image: prefecthq/prefect:3-latest
+  #   command: prefect worker start --pool default --work-queue default --type process
+  #   environment:
+  #     PREFECT_API_URL: http://prefect-server:4200/api
+  #     PYTHONPATH: /app
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #     - ./flows:/app/flows
+  #   depends_on:
+  #     - prefect-server
+  #   restart: always
+  #   # networks:
+  #   #   - infrahub_default
 
   webhook-api:
     build:
-      context: ./webhook
+      context: .
+      dockerfile: webhook/Dockerfile
     ports:
-      - "8000:8000"
+      - "5001:5000"
+    volumes:
+      - ./webhook:/app/webhook
     environment:
       PREFECT_API_URL: http://prefect-server:4200/api
+      PYTHONPATH: /app
+    depends_on:
+      - prefect-server
     # networks:
     #   - infrahub_default
 

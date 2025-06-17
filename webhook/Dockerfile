@@ -1,16 +1,12 @@
-# webhook/Dockerfile
-
 FROM python:3.12-slim
 
 WORKDIR /app
 
-# Copy dependency file from the root
 COPY pyproject.toml .
 
-# Install dependencies using uv
-RUN pip install uv && uv pip install --system .
+RUN pip install .
 
-# Copy only the webhook code (and optionally shared code like flows)
-COPY webhook/ .
+COPY flows/ flows/
+COPY webhook/ webhook/
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "webhook.main:app", "--host", "0.0.0.0", "--port", "5000"]
