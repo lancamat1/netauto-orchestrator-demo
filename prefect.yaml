@@ -24,7 +24,7 @@ deployments:
     description: "Process Netauto Flex Applications"
     entrypoint: flows/netauto_f5/flex.py:process_flex_application
     schedule: null
-    parameters: {}
+    parameters: {"webhook_data": {}}
     work_pool:
       name: k8s-alef-dc
       work_queue_name: default

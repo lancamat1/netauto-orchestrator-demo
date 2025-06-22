@@ -27,6 +27,7 @@ def validate_webhook_data(webhook_data: dict) -> WebhookPayload:
     """
     logger = get_run_logger()
     logger.info("Validating webhook data...")
+    logger.debug(f"Webhook data: {webhook_data}")
     try:
         return WebhookPayload(**webhook_data)
     except Exception as e:
