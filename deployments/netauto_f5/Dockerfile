@@ -1,10 +1,19 @@
-FROM python:3.12
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
-# Accept external Python package registry URL (optional)
-ARG AUTHED_ARTIFACT_REG_URL
+# Set the working directory
+WORKDIR /app
 
-# Copy Python requirements
-COPY ./requirements.txt /requirements.txt
+# Set environment variables
+ENV UV_SYSTEM_PYTHON=1
+ENV PATH="/root/.local/bin:$PATH"
+
+# Install git
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+
+# Copy only the requirements file first to leverage Docker cache
+COPY ./deployments/netauto_f5/requirements.txt ./requirements.txt
+
+RUN uv pip install prefect
 
 # Install dependencies
-RUN pip install -r /requirements.txt
+RUN uv pip install -r requirements.txt
