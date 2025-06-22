@@ -1,0 +1,4 @@
+# Add your netauto flex app specific dependencies here
+requests>=2.28.0
+pydantic>=2.0.0
+# Add other required packages

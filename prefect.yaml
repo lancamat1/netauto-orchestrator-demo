@@ -1,0 +1,57 @@
+prefect-version: 2.0
+name: netauto-orchestrator
+
+build:
+  - prefect_docker.deployments.steps.build_docker_image:
+      id: build-netauto-f5-image
+      requires: prefect-docker
+      image_name: netauto-f5
+      dockerfile: deployments/netauto_f5/Dockerfile
+      tag: latest
+
+push:
+  - prefect_docker.deployments.steps.push_docker_image:
+      id: push-netauto-f5-image
+      requires: prefect-docker
+      image: "{{ build-netauto-f5-image.image }}"
+      tag: latest
+      repository: lancamat/netauto-f5
+
+pull:
+  - prefect.deployments.steps.git_clone:
+      repository: https://github.com/lancamat1/netauto-orchestrator-demo.git
+      branch: main
+
+deployments:
+  - name: netauto-flex
+    version: 1
+    description: "Process Netauto Flex Applications"
+    entrypoint: flows/netauto_f5/flex.py:process_flex_application
+    parameters: {}
+    work_pool:
+      name: k8s-alef-dc
+      work_queue_name: default
+      job_variables:
+        image: "lancamat/netauto-f5:latest"
+
+  - name: netauto-l4
+    version: 1
+    description: "Process Netauto L4 Applications"
+    entrypoint: flows/netauto_f5/l4.py:process_l4_application
+    parameters: {}
+    work_pool:
+      name: k8s-alef-dc
+      work_queue_name: default
+      job_variables:
+        image: "lancamat/netauto-f5:latest"
+
+  - name: netauto-mtls
+    version: 1
+    description: "Process Netauto mTLS Applications"
+    entrypoint: flows/netauto_f5/mtls.py:process_mtls_application
+    parameters: {}
+    work_pool:
+      name: k8s-alef-dc
+      work_queue_name: default
+      job_variables:
+        image: "lancamat/netauto-f5:latest"

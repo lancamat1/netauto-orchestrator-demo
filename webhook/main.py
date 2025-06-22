@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request, HTTPException
 from pydantic import BaseModel
-from prefect import get_client, flow
+from prefect.deployments import run_deployment
 
 app = FastAPI()
 
@@ -30,20 +30,14 @@ async def handle_webhook(request: Request):
         if not target_kind:
             raise HTTPException(status_code=400, detail="Missing target_kind in payload")
         
-        flow_func = FLOW_MAPPING.get(target_kind)
-        if not flow_func:
+        deployment_name = FLOW_MAPPING.get(target_kind)
+        if not deployment_name:
             raise HTTPException(status_code=400, detail=f"Unsupported target_kind: {target_kind}")
         
-        flow_run = flow.from_source(
-            "https://github.com/lancamat1/netauto-orchestrator-demo.git",
-            entrypoint="flows/netauto_flex_app.py:process_netauto_flex_application"
-        ).deploy(
-            name="Netauto Flex Application Processing",
-            parameters={"webhook_data": webhook_data.model_dump()},
-            work_pool_name="my-docker-pool",
-            build=False
+        flow_run = await run_deployment(
+            name=deployment_name,
+            parameters={"webhook_data": webhook_data.model_dump()}
         )
-    
         return {"status": "flow_triggered", "flow_run_id": str(flow_run.id)}
     
     except Exception as e:
