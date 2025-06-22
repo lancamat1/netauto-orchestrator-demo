@@ -17,6 +17,16 @@ pull:
   - prefect.deployments.steps.git_clone:
       repository: https://github.com/lancamat1/netauto-orchestrator-demo.git
       branch: main
+definitions:
+  work_pools:
+    k8s_alef_dc: &k8s_alef_dc
+      name: k8s-alef-dc
+      work_queue_name: default
+      job_variables:
+        image: "lancamat/netauto-f5:latest"
+        env:
+          INFRAHUB_API_URL: "http://infrahub-infrahub-server.infrahub.svc.cluster.local:8000"
+          INFRAHUB_API_TOKEN: "06438eb2-8019-4776-878c-0941b1f1d1ec"
 
 deployments:
   - name: netauto-flex
@@ -25,11 +35,7 @@ deployments:
     entrypoint: flows/netauto_f5/flex.py:process_flex_application
     schedule: null
     parameters: {"webhook_data": {}}
-    work_pool:
-      name: k8s-alef-dc
-      work_queue_name: default
-      job_variables:
-        image: "lancamat/netauto-f5:latest"
+    work_pool: *k8s_alef_dc
 
   - name: netauto-l4
     version: "0.0.1"
@@ -37,11 +43,7 @@ deployments:
     entrypoint: flows/netauto_f5/l4.py:process_l4_application
     schedule: null
     parameters: {}
-    work_pool:
-      name: k8s-alef-dc
-      work_queue_name: default
-      job_variables:
-        image: "lancamat/netauto-f5:latest"
+    work_pool: *k8s_alef_dc
 
   - name: netauto-mtls
     version: "0.0.1"
@@ -49,8 +51,4 @@ deployments:
     entrypoint: flows/netauto_f5/mtls.py:process_mtls_application
     parameters: {}
     schedule: null
-    work_pool:
-      name: k8s-alef-dc
-      work_queue_name: default
-      job_variables:
-        image: "lancamat/netauto-f5:latest"
+    work_pool: *k8s_alef_dc
