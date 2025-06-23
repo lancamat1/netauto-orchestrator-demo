@@ -19,5 +19,5 @@ RUN uv pip install -r requirements.txt
 
 # Install the F5 AS3 SDK
 COPY ./deployments/netauto_f5/f5_as3_sdk ./f5_as3_sdk
-RUN uv pip install ./f5_as3_sdk
+RUN uv pip install -e ./f5_as3_sdk
 
