@@ -5,8 +5,9 @@ from prefect.deployments import run_deployment
 app = FastAPI()
 
 FLOW_MAPPING = {
-    "NetautoFlexApplication": "process_netauto_flex_application",
-    # Add more mappings as needed
+    "NetautoFlexApplication": "process-flex-application/netauto-flex",
+    "NetautoL4Application": "process-l4-application/netauto-l4",
+    "NetautoMTLSApplication": "process-mtls-application/netauto-mtls",
 }
 
 class WebhookPayload(BaseModel):

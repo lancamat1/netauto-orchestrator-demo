@@ -1,12 +1,17 @@
-FROM python:3.12-slim
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
+# Set the working directory
 WORKDIR /app
 
-COPY pyproject.toml .
+# Set environment variables
+ENV UV_SYSTEM_PYTHON=1
+ENV PATH="/root/.local/bin:$PATH"
 
-RUN pip install .
+COPY requirements.txt .
 
-COPY flows/ flows/
-COPY webhook/ webhook/
+# Install dependencies
+RUN uv pip install -r requirements.txt
 
-CMD ["uvicorn", "webhook.main:app", "--host", "0.0.0.0", "--port", "5000"]
+COPY . .
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5000"]
