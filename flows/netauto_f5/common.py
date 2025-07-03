@@ -3,10 +3,6 @@ from prefect import task, get_run_logger
 from infrahub_sdk import InfrahubClient
 from enum import Enum
 from f5_as3_sdk.connector import AS3Applications
-from blocks import InfrahubClientBlock
-from flex import process_flex_application
-from l4 import process_l4_application
-from mtls import process_mtls_application
 import os, json
 
 class DeploymentStatus(str, Enum):
@@ -34,20 +30,6 @@ class WebhookPayload(BaseModel):
     account_id: str
     occured_at: str
     event: str
-
-@process_flex_application.on_failure
-@process_l4_application.on_failure
-@process_mtls_application.on_failure
-async def node_deployment_status_failed(flow, flow_run, state):
-    logger = get_run_logger()
-    logger.error(f"Flow {flow.name} failed with state: {state}")
-    logger.error(f"Flow run parameters: {flow_run.parameters}")
-    block = await InfrahubClientBlock.load("infrahub-netauto-alef-dc")
-    client = block.get_client()
-    webhook_data = flow_run.parameters.get("webhook_data", {})
-    node_kind = webhook_data.get("data", {}).get("target_kind")
-    node_id = webhook_data.get("data", {}).get("target_id")
-    set_node_deployment_status(client, node_kind, node_id, DeploymentStatus.failed)
 
 @task()
 def validate_webhook_data(webhook_data: dict) -> WebhookPayload:
