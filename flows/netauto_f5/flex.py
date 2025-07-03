@@ -1,18 +1,14 @@
 from prefect import flow
-from common import validate_webhook_data, WebhookPayload
+from common import validate_webhook_data, get_as3_client, get_infrahub_client, fetch_infrahub_artifact
 from typing import Dict
-from f5_as3_sdk.connector import AS3Applications
-from infrahub_sdk import InfrahubClient
 import asyncio
-import os
-import json
 
 @flow(log_prints=True)
 async def process_flex_application(webhook_data: Dict):
     print("Processing Netauto Flex Application...")
     webhook_data = validate_webhook_data(webhook_data)
 
-    infc = InfrahubClient(address=os.getenv("INFRAHUB_API_URL", "http://infrahub.netauto.alef.dc"))
+    infc = get_infrahub_client()
 
     # Fetch target cluster management IP from infrahub
     application = await infc.get(kind=webhook_data.data.target_kind, id=webhook_data.data.target_id)
@@ -22,16 +18,8 @@ async def process_flex_application(webhook_data: Dict):
     await application.entity.fetch()
     entity = application.entity.peer.name.value
     print(f"Cluster IP: {cluster_ip}, Entity: {entity}")
-    # Fetch artifact from infrahub
-    payload_str = await infc.object_store.get(identifier=webhook_data.data.storage_id)
-    if not payload_str:
-        print(f"No payload found for storage_id {webhook_data.data.storage_id}")
-    try:
-        payload = json.loads(payload_str)
-    except Exception as e:
-        print(f"Error parsing payload for storage_id {webhook_data.data.storage_id}: {e}")
-
-    f5c = AS3Applications(cluster_ip, "admin", "1234Qwer")
+    payload = fetch_infrahub_artifact(infc, webhook_data.data.storage_id)
+    f5c = get_as3_client(cluster_ip)
     f5c.post_app(entity, payload)
 
     
