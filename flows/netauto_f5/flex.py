@@ -1,25 +1,41 @@
-from prefect import flow
-from common import validate_webhook_data, get_as3_client, get_infrahub_client, fetch_infrahub_artifact
+from prefect import flow, get_run_logger
+from common import *
 from typing import Dict
 import asyncio
+from blocks import InfrahubClientBlock
 
-@flow(log_prints=True)
+
+@flow()
 async def process_flex_application(webhook_data: Dict):
-    print("Processing Netauto Flex Application...")
+    logger = get_run_logger()
+    logger.info("Processing Flex Application webhook data...")
+
+    # Validate the incoming webhook data
     webhook_data = validate_webhook_data(webhook_data)
 
-    infc = get_infrahub_client()
+    # Initialize Infrahub client
+    infc_block = await InfrahubClientBlock.load("infrahub-netauto-alef-dc")
+    infc = infc_block.get_client()
+    logger.info(await infc.get_version())
 
-    # Fetch target cluster management IP from infrahub
+    # Set the target application status
+    set_node_deployment_status(infc, webhook_data.data.target_kind, webhook_data.data.target_id, "running")
+
+    # Fetch target cluster management IP and entity for target application
     application = await infc.get(kind=webhook_data.data.target_kind, id=webhook_data.data.target_id)
     await application.cluster.fetch()
     await application.cluster.peer.primary_address.fetch()
     cluster_ip = str(application.cluster.peer.primary_address.peer.address.value.ip)
     await application.entity.fetch()
     entity = application.entity.peer.name.value
-    print(f"Cluster IP: {cluster_ip}, Entity: {entity}")
+
+    # Fetch the payload for the Flex Application
     payload = fetch_infrahub_artifact(infc, webhook_data.data.storage_id)
+
+    # Initialize AS3 client
     f5c = get_as3_client(cluster_ip)
+
+    # Post the application to F5 AS3
     f5c.post_app(entity, payload)
 
     
