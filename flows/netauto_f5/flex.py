@@ -40,16 +40,14 @@ async def process_flex_application(webhook_data: Dict):
 
 
 @process_flex_application.on_failure
-async def node_deployment_status_failed(flow, flow_run, state):
+async def process_flex_application_failed(flow, flow_run, state):
     logger = get_run_logger()
-    logger.error(f"Flow {flow.name} failed with state: {state}")
-    logger.error(f"Flow run parameters: {flow_run.parameters}")
+    logger.info(f"Flow {flow.name} failed with state: {state}")
+    logger.info(f"Flow run parameters: {flow_run.parameters}")
     block = await InfrahubClientBlock.load("infrahub-netauto-alef-dc")
     client = block.get_client()
-    webhook_data = flow_run.parameters.get("webhook_data", {})
-    node_kind = webhook_data.get("data", {}).get("target_kind")
-    node_id = webhook_data.get("data", {}).get("target_id")
-    set_node_deployment_status(client, node_kind, node_id, DeploymentStatus.failed)
+    webhook_data = validate_webhook_data(flow_run.parameters.get("webhook_data", {}))
+    set_node_deployment_status(client, webhook_data.data.target_kind, webhook_data.data.target_id, DeploymentStatus.failed)
     
 if __name__ == "__main__":
 
