@@ -18,8 +18,7 @@ async def process_flex_application(webhook_data: Dict):
     infc = infc_block.get_client()
     logger.info(await infc.get_version())
 
-    # Set the target application status
-    set_node_deployment_status(infc, webhook_data.data.target_kind, webhook_data.data.target_id, "running")
+    set_node_deployment_status(infc, webhook_data.data.target_kind, webhook_data.data.target_id, DeploymentStatus.running)
 
     # Fetch target cluster management IP and entity for target application
     application = await infc.get(kind=webhook_data.data.target_kind, id=webhook_data.data.target_id)
@@ -37,6 +36,8 @@ async def process_flex_application(webhook_data: Dict):
 
     # Post the application to F5 AS3
     f5c.post_app(entity, payload)
+
+    set_node_deployment_status(infc, webhook_data.data.target_kind, webhook_data.data.target_id, DeploymentStatus.deployed)
 
 
 @process_flex_application.on_failure
