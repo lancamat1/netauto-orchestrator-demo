@@ -75,4 +75,4 @@ if __name__ == "__main__":
         "occured_at": "2025-06-16 12:38:15.177969+00:00",
         "event": "infrahub.artifact.updated"
     }
-    asyncio.run(deploy_as3_application(mock_webhook_data))
+    deploy_as3_application(mock_webhook_data)
