@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from prefect import task, get_run_logger
 from infrahub_sdk import InfrahubClient
 from enum import Enum
-from f5_as3_sdk.connector import AS3Applications
+# from f5_as3_sdk.connector import AS3Applications
 import os, json
 
 class DeploymentStatus(str, Enum):
@@ -45,18 +45,20 @@ def validate_webhook_data(webhook_data: dict) -> WebhookPayload:
     except Exception as e:
         raise ValueError(f"Invalid webhook data: {e}") from e
 
-def get_as3_client(address: str = None, username: str = None, password: str = None) -> AS3Applications:
+def get_as3_client(address: str = None, username: str = None, password: str = None): # -> AS3Applications:
     """
     Returns an AS3 client instance.
     This function should be implemented to return a valid AS3 client.
     """
     logger = get_run_logger()
     logger.info("Creating AS3 client...")
-    client = AS3Applications(address, 
-                             username if username else "admin", 
-                             password if password else "1234Qwer")
-    logger.info(client.__get(uri="/mgmt/shared/appsvcs/info"))
-    return client
+    # client = AS3Applications(address, 
+    #                          username if username else "admin", 
+    #                          password if password else "1234Qwer")
+    # logger.info(client.__get(uri="/mgmt/shared/appsvcs/info"))
+    # return client
+    logger.info("AS3 client creation temporarily disabled - f5_as3_sdk not available")
+    return None
 
 # @task(retries=3)
 # def get_infrahub_client(address: str = None) -> InfrahubClient:

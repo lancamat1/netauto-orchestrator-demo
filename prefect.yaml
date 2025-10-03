@@ -17,38 +17,49 @@ pull:
   - prefect.deployments.steps.git_clone:
       repository: https://github.com/lancamat1/netauto-orchestrator-demo.git
       branch: main
+
 definitions:
   work_pools:
-    k8s_alef_dc: &k8s_alef_dc
-      name: k8s-alef-dc
-      work_queue_name: default
-      job_variables:
-        image: "lancamat/netauto-f5:latest"
-        env:
-          INFRAHUB_API_URL: "http://infrahub-infrahub-server.infrahub.svc.cluster.local:8000"
-          INFRAHUB_API_TOKEN: "06438eb2-8019-4776-878c-0941b1f1d1ec"
+    - k8s_alef_dc: &k8s_alef_dc
+        name: k8s-alef-dc
+        work_queue_name: default
+        job_variables:
+          image: "lancamat/netauto-f5:latest"
+          env:
+            INFRAHUB_API_URL: "http://infrahub-infrahub-server.infrahub.svc.cluster.local:8000"
+            INFRAHUB_API_TOKEN: "06438eb2-8019-4776-878c-0941b1f1d1ec"
+            
+    - docker_local: &docker_local
+        name: docker-local
+        work_queue_name: default
+        job_variables:
+          image: "lancamat/netauto-f5:latest"
+          env:
+            INFRAHUB_API_URL: "http://infrahub.netauto.alef.dc"
+            INFRAHUB_API_TOKEN: "06438eb2-8019-4776-878c-0941b1f1d1ec"
 
 deployments:
-  - name: netauto-flex
-    version: "0.0.1"
-    description: "Process Netauto Flex Applications"
-    entrypoint: flows/netauto_f5/flex.py:process_flex_application
+  - name: deploy-as3-application
+    version: "1.0.0"
+    description: "Deploy AS3 applications to F5 (Flex, L4, mTLS)"
+    entrypoint: flows/deploy_as3_application.py:deploy_as3_application
     schedule: null
     parameters: {"webhook_data": {}}
     work_pool: *k8s_alef_dc
 
-  - name: netauto-l4
-    version: "0.0.1"
-    description: "Process Netauto L4 Applications"
-    entrypoint: flows/netauto_f5/l4.py:process_l4_application
-    schedule: null
+  - name: sync-ip-fabric
+    version: "1.0.0"
+    description: "Scheduled synchronization of IP fabric infrastructure"
+    entrypoint: flows/sync_ip_fabric.py:sync_ip_fabric
+    schedule:
+      cron: "0 */6 * * *"  # Every 6 hours
     parameters: {}
     work_pool: *k8s_alef_dc
 
-  - name: netauto-mtls
-    version: "0.0.1"
-    description: "Process Netauto mTLS Applications"
-    entrypoint: flows/netauto_f5/mtls.py:process_mtls_application
-    parameters: {}
+  - name: stage-proposed-change
+    version: "1.0.0"
+    description: "Handle and stage proposed changes from various events"
+    entrypoint: flows/stage_proposed_change.py:stage_proposed_change
     schedule: null
+    parameters: {"webhook_data": {}}
     work_pool: *k8s_alef_dc
