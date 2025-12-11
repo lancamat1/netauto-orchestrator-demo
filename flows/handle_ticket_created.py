@@ -14,6 +14,7 @@ from blocks.blocks import InfrahubClientBlock
 from flows.models import WebhookPayload
 
 from infrahub_sdk.protocols import CoreProposedChange
+from infrahub_sdk.exceptions import BranchNotFoundError
 
 
 @task
@@ -40,10 +41,12 @@ async def create_ticket_branch(client, ticket_id: str, ritm: str) -> str:
     logger.info(f"Creating branch: {branch_name}")
 
     # Create branch in Infrahub if it does not exist
-    existing_branch = await client.branch.get(branch_name=branch_name)
-    if existing_branch:
+    try:
+        existing_branch = await client.branch.get(branch_name=branch_name)
         logger.info(f"Branch already exists: {existing_branch.name}")
         return existing_branch.name
+    except BranchNotFoundError:
+        pass  # Branch does not exist, proceed to create
 
     branch = await client.branch.create(
         branch_name=branch_name,
