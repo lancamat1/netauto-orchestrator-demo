@@ -19,3 +19,5 @@ deployments:
       job_variables:
         image: "prefecthq/prefect:3-python3.12"
         namespace: "prefect"
+        env:
+          EXTRA_PIP_PACKAGES: "infrahub-sdk pydantic"
