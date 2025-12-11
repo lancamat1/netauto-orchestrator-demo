@@ -13,6 +13,8 @@ from prefect.cache_policies import NONE
 from blocks.blocks import InfrahubClientBlock
 from flows.models import WebhookPayload
 
+from infrahub_sdk.protocols import CoreProposedChange
+
 
 @task
 async def get_infrahub_client():
@@ -24,6 +26,11 @@ async def get_infrahub_client():
     logger.info(f"Connected to Infrahub: {version}")
     return client
 
+@task
+async def get_snow_client():
+    """Load ServiceNow client from Prefect block."""
+    # TODO: Implement ServiceNow client block and loading
+    pass
 
 @task(cache_policy=NONE)
 async def create_ticket_branch(client, ticket_id: str, ritm: str) -> str:
@@ -32,7 +39,12 @@ async def create_ticket_branch(client, ticket_id: str, ritm: str) -> str:
     branch_name = f"ticket/{ritm}"
     logger.info(f"Creating branch: {branch_name}")
 
-    # Create branch in Infrahub
+    # Create branch in Infrahub if it does not exist
+    existing_branch = await client.branch.get(branch_name=branch_name)
+    if existing_branch:
+        logger.info(f"Branch already exists: {existing_branch.name}")
+        return existing_branch.name
+
     branch = await client.branch.create(
         branch_name=branch_name,
         description=f"Implementation branch for ticket {ritm}",
@@ -43,62 +55,54 @@ async def create_ticket_branch(client, ticket_id: str, ritm: str) -> str:
 
 
 @task(cache_policy=NONE)
-async def fetch_ticket_details(client, node_id: str, branch: str = "main") -> dict[str, Any]:
-    """Fetch full ticket details from Infrahub."""
-    logger = get_run_logger()
-    logger.info(f"Fetching ticket details for node_id: {node_id}")
-
-    ticket = await client.get(kind="NetautoServiceNowTicket", id=node_id, branch=branch)
-    logger.info(f"Ticket: {ticket.ritm.value} - {ticket.short_description.value}")
-
-    return {
-        "id": node_id,
-        "ritm": ticket.ritm.value,
-        "status": ticket.status.value,
-        "cat_item": ticket.cat_item.value,
-        "short_description": ticket.short_description.value,
-        "sys_id": ticket.sys_id.value,
+async def fetch_ticket_details(client, ritm: str) -> dict[str, Any]:
+    """Fetch full ticket details from SNOW."""
+    # Placeholder implementation - replace with actual SNOW API calls
+    # Return static segment data for now
+    ticket_details = {
+        "entity": await client.get(kind="OrganizationEntity", name__value="Bank"),
+        "pillar": await client.get(kind="NetautoPillar", name__value="Prod"),
+        "firewall_device": await client.get(kind="InfraDevice", name__value="cz-fw-1"),
+        "country": await client.get(kind="LocationCountry", shortname__value="CZ"),
+        "network_category": "production",
+        "filtering_profile": "X",
+        "network_zone": "perimeter",
+        "purpose": "Business critical application",
+        "ritm": ritm,
     }
+
+    return ticket_details
 
 
 @task(cache_policy=NONE)
-async def implement_segment_service(client, ticket: dict[str, Any], branch: str):
+async def implement_segment_service(client, ticket_details: dict[str, Any], branch: str, ritm: str):
     """
     Implement a segment service request on the given branch.
-
-    TODO: Implementation steps:
-    1. Parse ticket short_description to extract segment details
-    2. Create NetautoSegmentService object on the branch
-    3. Allocate VLAN from pool (via generator or direct allocation)
-    4. Allocate Prefix from pool (via generator or direct allocation)
-    5. Create proposed change from branch to main
     """
     logger = get_run_logger()
-    logger.info(f"Implementing segment service for ticket {ticket['ritm']} on branch {branch}")
+    logger.info(f"Implementing segment service for ticket {ritm} on branch {branch}")
 
-    # TODO: Parse segment details from ticket
-    # segment_name = parse_segment_name(ticket['short_description'])
+    service = await client.create(
+        kind="NetautoSegmentService",
+        data=ticket_details,
+        branch=branch,
+    )
+    await service.save(allow_upsert=True)
 
-    # TODO: Create NetautoSegmentService object
-    # segment = await client.create(
-    #     kind="NetautoSegmentService",
-    #     data={...},
-    #     branch=branch,
-    # )
-    # await segment.save()
+    logger.info(f"Creating proposed change for segment service ticket {ritm}")
+    proposed_change_dict: dict = {
+        "name": f"Segment service for ticket {ritm}",
+        "source_branch": branch,
+        "destination_branch": "main",
+    }
+    proposed_change = await client.create(
+        kind=CoreProposedChange,
+        data=proposed_change_dict,
+        branch=branch,
+    )
+    await proposed_change.save(allow_upsert=True)
 
-    # TODO: Create proposed change
-    # proposed_change = await client.create(
-    #     kind="CoreProposedChange",
-    #     data={
-    #         "name": f"Implement segment for {ticket['ritm']}",
-    #         "source_branch": branch,
-    #         "destination_branch": "main",
-    #     },
-    # )
-    # await proposed_change.save()
-
-    logger.info(f"Segment service implementation placeholder complete for {ticket['ritm']}")
+    logger.info(f"Segment service for ticket {ritm} created successfully on branch {branch}")
 
 
 @task(cache_policy=NONE)
@@ -161,13 +165,13 @@ async def handle_ticket_created(payload: WebhookPayload) -> dict[str, Any]:
     branch = await create_ticket_branch(client, node_id, ritm)
 
     # Fetch full ticket details
-    ticket = await fetch_ticket_details(client, node_id)
+    ticket_details = await fetch_ticket_details(client, ritm)
 
     # Route to appropriate implementation based on category
     if cat_item == "segment":
-        await implement_segment_service(client, ticket, branch)
+        await implement_segment_service(client, ticket_details, branch, ritm)
     elif cat_item == "application":
-        await implement_application_service(client, ticket, branch)
+        await implement_application_service(client, ticket_details, branch)
     else:
         logger.warning(f"Unknown cat_item: {cat_item}, skipping implementation")
 
