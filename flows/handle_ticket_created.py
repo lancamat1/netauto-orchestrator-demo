@@ -8,6 +8,7 @@ import asyncio
 from typing import Any
 
 from prefect import flow, task, get_run_logger
+from prefect.cache_policies import NONE
 
 from blocks.blocks import InfrahubClientBlock
 from flows.models import WebhookPayload
@@ -24,7 +25,7 @@ async def get_infrahub_client():
     return client
 
 
-@task
+@task(cache_policy=NONE)
 async def create_ticket_branch(client, ticket_id: str, ritm: str) -> str:
     """Create a new branch for implementing the ticket."""
     logger = get_run_logger()
@@ -41,7 +42,7 @@ async def create_ticket_branch(client, ticket_id: str, ritm: str) -> str:
     return branch.name
 
 
-@task
+@task(cache_policy=NONE)
 async def fetch_ticket_details(client, node_id: str, branch: str = "main") -> dict[str, Any]:
     """Fetch full ticket details from Infrahub."""
     logger = get_run_logger()
@@ -60,7 +61,7 @@ async def fetch_ticket_details(client, node_id: str, branch: str = "main") -> di
     }
 
 
-@task
+@task(cache_policy=NONE)
 async def implement_segment_service(client, ticket: dict[str, Any], branch: str):
     """
     Implement a segment service request on the given branch.
@@ -100,7 +101,7 @@ async def implement_segment_service(client, ticket: dict[str, Any], branch: str)
     logger.info(f"Segment service implementation placeholder complete for {ticket['ritm']}")
 
 
-@task
+@task(cache_policy=NONE)
 async def implement_application_service(client, ticket: dict[str, Any], branch: str):
     """
     Implement an application (F5) service request on the given branch.
