@@ -1,7 +1,6 @@
 from prefect.blocks.core import Block
 from pydantic import SecretStr
 from infrahub_sdk import InfrahubClient, Config
-import os
 
 # This block defines a Prefect block for InfraHubClient configuration.
 class InfrahubClientBlock(Block):
@@ -15,8 +14,8 @@ class InfrahubClientBlock(Block):
 
     def get_client(self) -> InfrahubClient:
         return InfrahubClient(
-            address=os.getenv("PREFECT_API_URL", self.api_url),
-            config=Config(api_token=os.getenv("PREFECT_API_TOKEN", self.api_key.get_secret_value()))
+            address=self.api_url,
+            config=Config(api_token=self.api_key.get_secret_value())
         )
 
 InfrahubClientBlock.register_type_and_schema()
