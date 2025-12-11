@@ -1,18 +1,6 @@
 prefect-version: 2.0
 name: netauto-orchestrator
 
-build:
-  - prefect_docker.deployments.steps.build_docker_image:
-      id: build-netauto-f5-image
-      image_name: lancamat/netauto-f5
-      dockerfile: deployments/netauto_f5/Dockerfile
-      tag: latest
-
-push:
-  - prefect_docker.deployments.steps.push_docker_image:
-      image_name: "lancamat/netauto-f5"
-      tag: "latest"
-
 pull:
   - prefect.deployments.steps.git_clone:
       repository: https://github.com/lancamat1/netauto-orchestrator-demo.git
@@ -24,42 +12,14 @@ definitions:
         name: k8s-alef-dc
         work_queue_name: default
         job_variables:
-          image: "lancamat/netauto-f5:latest"
-          env:
-            INFRAHUB_API_URL: "http://infrahub-infrahub-server.infrahub.svc.cluster.local:8000"
-            INFRAHUB_API_TOKEN: "06438eb2-8019-4776-878c-0941b1f1d1ec"
-            
-    - docker_local: &docker_local
-        name: docker-local
-        work_queue_name: default
-        job_variables:
-          image: "lancamat/netauto-f5:latest"
-          env:
-            INFRAHUB_API_URL: "http://infrahub.netauto.alef.dc"
-            INFRAHUB_API_TOKEN: "06438eb2-8019-4776-878c-0941b1f1d1ec"
+          image: "prefecthq/prefect:3-python3.12"
+          namespace: "prefect"
 
 deployments:
-  - name: deploy-as3-application
+  - name: webhook-handler
     version: "1.0.0"
-    description: "Deploy AS3 applications to F5 (Flex, L4, mTLS)"
-    entrypoint: flows/deploy_as3_application.py:deploy_as3_application
+    description: "Generic webhook handler for Infrahub events - logs payload for inspection"
+    entrypoint: flows/webhook_handler.py:webhook_handler
     schedule: null
-    parameters: {"webhook_data": {}}
-    work_pool: *k8s_alef_dc
-
-  - name: sync-ip-fabric
-    version: "1.0.0"
-    description: "Scheduled synchronization of IP fabric infrastructure"
-    entrypoint: flows/sync_ip_fabric.py:sync_ip_fabric
-    schedule:
-      cron: "0 */6 * * *"  # Every 6 hours
-    parameters: {}
-    work_pool: *k8s_alef_dc
-
-  - name: stage-proposed-change
-    version: "1.0.0"
-    description: "Handle and stage proposed changes from various events"
-    entrypoint: flows/stage_proposed_change.py:stage_proposed_change
-    schedule: null
-    parameters: {"webhook_data": {}}
+    parameters: {"webhook_payload": {}}
     work_pool: *k8s_alef_dc
