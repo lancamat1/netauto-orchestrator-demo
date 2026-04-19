@@ -35,6 +35,9 @@ async def deploy_as3_application(webhook_data: Dict):
     # Fetch the payload for the Application
     payload = fetch_infrahub_artifact(infc, webhook_data.data.storage_id)
 
+    # TODO: Add first 6 characters of the checksum to the application description. (replacing ###### in the artifact)
+    payload["description"] = f"{payload.get('description', '')} ({webhook_data.data.checksum[:6]})"
+
     # TODO: Implement AS3 deployment
     logger.info(f"Deploying AS3 application to cluster at {cluster_ip} with payload: {payload}")
     # # Initialize AS3 client
