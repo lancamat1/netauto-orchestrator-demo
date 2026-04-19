@@ -10,7 +10,7 @@ from typing import Any
 from prefect import flow, task, get_run_logger
 from prefect.cache_policies import NONE
 
-from blocks.blocks import InfrahubClientBlock
+from blocks.blocks import get_infrahub_client as _build_infrahub_client
 from flows.models import WebhookPayload
 
 from infrahub_sdk.protocols import CoreProposedChange
@@ -19,10 +19,8 @@ from infrahub_sdk.exceptions import BranchNotFoundError
 
 @task
 async def get_infrahub_client():
-    """Load Infrahub client from Prefect block."""
     logger = get_run_logger()
-    block = await InfrahubClientBlock.load("infrahub-netauto-alef-dc")
-    client = block.get_client()
+    client = _build_infrahub_client()
     version = await client.get_version()
     logger.info(f"Connected to Infrahub: {version}")
     return client

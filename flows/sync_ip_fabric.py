@@ -1,7 +1,7 @@
 from prefect import flow, get_run_logger
 from tasks.common import *
 import asyncio
-from blocks.blocks import InfrahubClientBlock
+from blocks.blocks import get_infrahub_client
 
 
 @flow()
@@ -9,9 +9,7 @@ async def sync_ip_fabric():
     logger = get_run_logger()
     logger.info("Starting IP fabric synchronization...")
 
-    # Initialize Infrahub client
-    infc_block = await InfrahubClientBlock.load("infrahub-netauto-alef-dc")
-    infc = infc_block.get_client()
+    infc = get_infrahub_client()
     logger.info(await infc.get_version())
 
     # TODO: Implement IP fabric synchronization logic
