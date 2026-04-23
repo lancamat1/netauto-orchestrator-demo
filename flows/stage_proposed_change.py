@@ -2,7 +2,7 @@ from prefect import flow, get_run_logger
 from tasks.common import *
 from typing import Dict
 import asyncio
-from blocks.blocks import InfrahubClientBlock
+from blocks.blocks import get_infrahub_client
 
 
 @flow()
@@ -13,9 +13,7 @@ async def stage_proposed_change(webhook_data: Dict):
     # Validate the incoming webhook data
     webhook_data = validate_webhook_data(webhook_data)
 
-    # Initialize Infrahub client
-    infc_block = await InfrahubClientBlock.load("infrahub-netauto-alef-dc")
-    infc = infc_block.get_client()
+    infc = get_infrahub_client()
     logger.info(await infc.get_version())
 
     # TODO: Implement proposed change staging logic based on event type

@@ -6,7 +6,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tasks.common import validate_webhook_data, fetch_infrahub_artifact, set_node_deployment_status, DeploymentStatus
-from blocks.blocks import InfrahubClientBlock
+from blocks.blocks import get_infrahub_client
 
 
 @flow()
@@ -17,9 +17,7 @@ async def deploy_as3_application(webhook_data: Dict):
     # Validate the incoming webhook data
     webhook_data = validate_webhook_data(webhook_data)
 
-    # Initialize Infrahub client
-    infc_block = await InfrahubClientBlock.load("infrahub-netauto-alef-dc")
-    infc = infc_block.get_client()
+    infc = get_infrahub_client()
     logger.info(await infc.get_version())
 
     set_node_deployment_status(infc, webhook_data.data.target_kind, webhook_data.data.target_id, DeploymentStatus.running)
@@ -54,8 +52,7 @@ async def deploy_as3_application_failed(flow, flow_run, state):
     logger = get_run_logger()
     logger.info(f"Flow {flow.name} failed with state: {state}")
     logger.info(f"Flow run parameters: {flow_run.parameters}")
-    block = await InfrahubClientBlock.load("infrahub-netauto-alef-dc")
-    client = block.get_client()
+    client = get_infrahub_client()
     webhook_data = validate_webhook_data(flow_run.parameters.get("webhook_data", {}))
     set_node_deployment_status(client, webhook_data.data.target_kind, webhook_data.data.target_id, DeploymentStatus.failed)
 

@@ -1,9 +1,11 @@
 name: netauto-orchestrator
 
 pull:
-  - prefect.deployments.steps.git_clone:
-      repository: https://github.com/lancamat1/netauto-orchestrator-demo.git
-      branch: main
+  - prefect.deployments.steps.set_working_directory:
+      directory: /prefect-config
+  # - prefect.deployments.steps.git_clone:
+  #     repository: https://github.com/lancamat1/netauto-orchestrator-demo.git
+  #     branch: main
 
 deployments:
   - name: webhook-handler
@@ -14,10 +16,5 @@ deployments:
     parameters:
       webhook_payload: {}
     work_pool:
-      name: k8s-alef-dc
+      name: netauto-pool
       work_queue_name: default
-      job_variables:
-        image: "prefecthq/prefect:3-python3.12"
-        namespace: "prefect"
-        env:
-          EXTRA_PIP_PACKAGES: "infrahub-sdk pydantic"
