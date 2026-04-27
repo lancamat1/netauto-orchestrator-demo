@@ -12,6 +12,9 @@ from prefect import flow, get_run_logger
 
 from flows.models import WebhookPayload
 from flows.handle_ticket_created import handle_ticket_created
+from flows.deploy_as3_application import deploy_as3_application
+
+ARTIFACT_EVENTS = {"infrahub.artifact.created", "infrahub.artifact.updated"}
 
 
 @flow(name="webhook-handler")
@@ -37,7 +40,7 @@ async def webhook_handler(webhook_payload: dict[str, Any]) -> dict[str, Any]:
         return {"status": "error", "message": "Invalid payload", "errors": e.errors()}
 
     logger.info(
-        f"Event: {payload.event} | Kind: {payload.data.kind} | "
+        f"Event: {payload.event} | Kind: {payload.data.kind or payload.data.target_kind} | "
         f"Action: {payload.data.action} | Branch: {payload.branch}"
     )
 
@@ -47,15 +50,22 @@ async def webhook_handler(webhook_payload: dict[str, Any]) -> dict[str, Any]:
         result = await handle_ticket_created(payload)
         return result
 
-    # TODO: Add more event handlers here
-    # elif payload.event == "infrahub.artifact.created":
-    #     ...
+    elif payload.event in ARTIFACT_EVENTS and (payload.data.target_kind or "").endswith("Application"):
+        logger.info(f"Routing to deploy_as3_application: {payload.event} for {payload.data.target_kind}")
+        await deploy_as3_application(webhook_payload)
+        return {
+            "status": "handled",
+            "event": payload.event,
+            "kind": payload.data.target_kind,
+            "branch": payload.branch,
+            "handled": True,
+        }
 
-    logger.info(f"No handler for event: {payload.event} kind: {payload.data.kind}")
+    logger.info(f"No handler for event: {payload.event} kind: {payload.data.kind or payload.data.target_kind}")
     return {
         "status": "received",
         "event": payload.event,
-        "kind": payload.data.kind,
+        "kind": payload.data.kind or payload.data.target_kind,
         "branch": payload.branch,
         "handled": False,
     }

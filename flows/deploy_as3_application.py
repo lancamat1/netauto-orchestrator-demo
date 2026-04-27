@@ -1,12 +1,74 @@
 from prefect import flow, get_run_logger
 from typing import Dict
 import asyncio
-import sys
+import json
 import os
+import sys
+import urllib3
+import requests
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tasks.common import validate_webhook_data, fetch_infrahub_artifact, set_node_deployment_status, DeploymentStatus
 from blocks.blocks import get_infrahub_client
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+
+def _f5_login(cluster_ip: str, username: str, password: str, timeout: int = 30) -> str:
+    r = requests.post(
+        f"https://{cluster_ip}/mgmt/shared/authn/login",
+        json={"username": username, "password": password, "loginProviderName": "tmos"},
+        auth=(username, password),
+        verify=False,
+        timeout=timeout,
+    )
+    r.raise_for_status()
+    return r.json()["token"]["token"]
+
+
+def _ensure_per_app(cluster_ip: str, headers: dict, timeout: int = 30) -> None:
+    settings_url = f"https://{cluster_ip}/mgmt/shared/appsvcs/settings"
+    r = requests.get(settings_url, headers=headers, verify=False, timeout=timeout)
+    r.raise_for_status()
+    if not r.json().get("perAppDeploymentAllowed"):
+        r = requests.post(
+            settings_url,
+            headers=headers,
+            json={"perAppDeploymentAllowed": True},
+            verify=False,
+            timeout=timeout,
+        )
+        r.raise_for_status()
+
+
+def _post_app(cluster_ip: str, headers: dict, tenant: str, payload: dict, timeout: int = 120) -> dict:
+    r = requests.post(
+        f"https://{cluster_ip}/mgmt/shared/appsvcs/declare/{tenant}/applications",
+        headers=headers,
+        json=payload,
+        verify=False,
+        timeout=timeout,
+    )
+    if not r.ok:
+        try:
+            detail = r.json()
+        except ValueError:
+            detail = r.text
+        raise RuntimeError(f"AS3 deploy failed ({r.status_code}): {detail}")
+    try:
+        return r.json()
+    except ValueError:
+        return {}
+
+
+def deploy_as3(cluster_ip: str, tenant: str, payload: dict) -> dict:
+    username = os.getenv("F5_USERNAME")
+    password = os.getenv("F5_PASSWORD")
+    token = _f5_login(cluster_ip, username, password)
+    headers = {"Content-Type": "application/json", "X-F5-Auth-Token": token}
+    _ensure_per_app(cluster_ip, headers)
+    return _post_app(cluster_ip, headers, tenant, payload)
 
 
 @flow()
@@ -24,25 +86,20 @@ async def deploy_as3_application(webhook_data: Dict):
 
     # Fetch target cluster management IP and entity for target application
     application = await infc.get(kind=webhook_data.data.target_kind, id=webhook_data.data.target_id)
-    await application.cluster.fetch()
-    await application.cluster.peer.primary_address.fetch()
-    cluster_ip = str(application.cluster.peer.primary_address.peer.address.value.ip)
+    await application.f5_cluster.fetch()
+    await application.f5_cluster.peer.primary_address.fetch()
+    cluster_ip = str(application.f5_cluster.peer.primary_address.peer.address.value.ip)
     await application.entity.fetch()
     entity = application.entity.peer.name.value
 
     # Fetch the payload for the Application
-    payload = fetch_infrahub_artifact(infc, webhook_data.data.storage_id)
+    payload = await fetch_infrahub_artifact(infc, webhook_data.data.storage_id)
 
-    # TODO: Add first 6 characters of the checksum to the application description. (replacing ###### in the artifact)
-    payload["description"] = f"{payload.get('description', '')} ({webhook_data.data.checksum[:6]})"
+    payload = json.loads(json.dumps(payload).replace("XXXXXX", webhook_data.data.checksum[:6]))
 
-    # TODO: Implement AS3 deployment
-    logger.info(f"Deploying AS3 application to cluster at {cluster_ip} with payload: {payload}")
-    # # Initialize AS3 client
-    # f5c = get_as3_client(cluster_ip)
-
-    # # Post the application to F5 AS3
-    # f5c.post_app(entity, payload)
+    logger.info(f"Deploying AS3 application to cluster at {cluster_ip} (tenant={entity})")
+    result = await asyncio.to_thread(deploy_as3, cluster_ip, entity, payload)
+    logger.info(f"AS3 deploy response: {result}")
 
     set_node_deployment_status(infc, webhook_data.data.target_kind, webhook_data.data.target_id, DeploymentStatus.deployed)
 
@@ -60,14 +117,14 @@ async def deploy_as3_application_failed(flow, flow_run, state):
 if __name__ == "__main__":
     mock_webhook_data = {
         "data": {
-            "node_id": "186af7d7-1ff8-3a64-dfa8-c519a5c3df49",
-            "checksum": "92a1456e02ded2ebe4a25df68149fdb1",
-            "target_id": "185f9746-dfb0-7082-dfaf-c516ce18beb4",
-            "storage_id": "186af7d7-7a9a-39d0-dfaa-c51105f4a087",
+            "node_id": "18aa2b96-6f26-e112-efe2-c511c8788b17",
+            "checksum": "2dcdf5fcf61739fc947986bf08a47496",
+            "target_id": "189f7448-6ae6-b797-efe0-c51a44bc4ca9",
+            "storage_id": "18aa2b96-d501-fb69-efe1-c51527734c1c",
             "target_kind": "NetautoFlexApplication",
-            "checksum_previous": "1083e399061bbe4fddc3478492c87225",
-            "storage_id_previous": "18498531-6594-cd12-e08a-c5146b746b62",
-            "artifact_definition_id": "1848f2c5-9701-8d43-e081-c51332fa2bc8"
+            "checksum_previous": "2dcdf5fcf61739fc947986bf08a47496",
+            "storage_id_previous": "18aa2b96-d501-fb69-efe1-c51527734c1c",
+            "artifact_definition_id": "188023e7-302d-7ff3-e387-c51754f3090c"
         },
         "id": "0b550602-4a3c-446b-ad11-9c3d7575c497",
         "branch": "main",
@@ -75,4 +132,4 @@ if __name__ == "__main__":
         "occured_at": "2025-06-16 12:38:15.177969+00:00",
         "event": "infrahub.artifact.updated"
     }
-    deploy_as3_application(mock_webhook_data)
+    asyncio.run(deploy_as3_application(mock_webhook_data))

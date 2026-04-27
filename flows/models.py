@@ -44,11 +44,21 @@ class Changelog(BaseModel):
 class WebhookData(BaseModel):
     """Data section of the webhook payload."""
 
-    kind: str
-    action: str
+    # Node events (created/updated)
+    kind: str | None = None
+    action: str | None = None
     node_id: str
     fields: list[str] = Field(default_factory=list)
     changelog: Changelog | None = None
+
+    # Artifact events (created/updated)
+    target_id: str | None = None
+    target_kind: str | None = None
+    storage_id: str | None = None
+    storage_id_previous: str | None = None
+    checksum: str | None = None
+    checksum_previous: str | None = None
+    artifact_definition_id: str | None = None
 
 
 class WebhookPayload(BaseModel):

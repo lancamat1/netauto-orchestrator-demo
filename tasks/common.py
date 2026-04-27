@@ -73,14 +73,14 @@ def get_as3_client(address: str = None, username: str = None, password: str = No
 #     return client
 
 @task()
-def fetch_infrahub_artifact(infrahub_client: InfrahubClient, storage_id: str) -> dict:
+async def fetch_infrahub_artifact(infrahub_client: InfrahubClient, storage_id: str) -> dict:
     """
     Fetches an artifact from Infrahub using the provided storage ID.
     Returns the artifact as a dictionary.
     """
     logger = get_run_logger()
     logger.info(f"Fetching artifact with storage_id: {storage_id}")
-    payload_str = infrahub_client.object_store.get(identifier=storage_id)
+    payload_str = await infrahub_client.object_store.get(identifier=storage_id)
     if not payload_str:
         raise ValueError(f"No payload found for storage_id {storage_id}")
     
